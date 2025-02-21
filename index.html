@@ -7,50 +7,27 @@
     <style>
       canvas {
         border: 1px solid white;
-        background: black;
-        max-width: 100%;
-        height: auto;
+        background: black; /* Cosmic background */
       }
       body {
         display: flex;
-        flex-direction: column;
         justify-content: center;
         align-items: center;
         height: 100vh;
         margin: 0;
         background: #111;
-        touch-action: none; /* Prevent default touch actions */
       }
     </style>
   </head>
   <body>
-    <canvas id="gameCanvas"></canvas>
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
     <script>
       const canvas = document.getElementById('gameCanvas');
       const ctx = canvas.getContext('2d');
 
-      // Responsive canvas sizing
-      function resizeCanvas() {
-        const maxWidth = Math.min(800, window.innerWidth - 20);
-        const maxHeight = Math.min(400, window.innerHeight - 20);
-        const aspectRatio = 800 / 400;
-
-        if (maxWidth / maxHeight > aspectRatio) {
-          canvas.height = maxHeight;
-          canvas.width = maxHeight * aspectRatio;
-        } else {
-          canvas.width = maxWidth;
-          canvas.height = maxWidth / aspectRatio;
-        }
-      }
-
-      // Call resize on load and window resize
-      window.addEventListener('resize', resizeCanvas);
-      resizeCanvas();
-
-      // Update WIDTH and HEIGHT constants
-      let WIDTH = canvas.width;
-      let HEIGHT = canvas.height;
+      // Game settings
+      const WIDTH = canvas.width;
+      const HEIGHT = canvas.height;
 
       // Player (Blue Bird)
       const player = {
@@ -87,23 +64,17 @@
       window.addEventListener('keydown', (e) => (keys[e.key] = true));
       window.addEventListener('keyup', (e) => (keys[e.key] = false));
 
-      // Add touch controls
-      canvas.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        const touch = e.touches[0];
+      // Click to shoot
+      canvas.addEventListener('click', (e) => {
         const rect = canvas.getBoundingClientRect();
-        const touchX =
-          (touch.clientX - rect.left) * (canvas.width / rect.width);
-        const touchY =
-          (touch.clientY - rect.top) * (canvas.height / rect.height);
-
-        // Shoot if touching the player
+        const clickX = e.clientX - rect.left;
+        const clickY = e.clientY - rect.top;
         if (
           !gameOver &&
-          touchX >= player.x &&
-          touchX <= player.x + player.size &&
-          touchY >= player.y &&
-          touchY <= player.y + player.size &&
+          clickX >= player.x &&
+          clickX <= player.x + player.size &&
+          clickY >= player.y &&
+          clickY <= player.y + player.size &&
           Date.now() - player.lastShot > player.shootDelay
         ) {
           player.bullets.push({
@@ -114,34 +85,6 @@
           });
           player.lastShot = Date.now();
         }
-      });
-
-      // Add touch movement
-      let touchStartX = null;
-
-      canvas.addEventListener('touchmove', (e) => {
-        e.preventDefault();
-        const touch = e.touches[0];
-        const rect = canvas.getBoundingClientRect();
-        const touchX =
-          (touch.clientX - rect.left) * (canvas.width / rect.width);
-
-        if (touchStartX === null) {
-          touchStartX = touchX;
-        }
-
-        const diff = touchX - touchStartX;
-        if (diff > 10 && player.x < WIDTH - player.size) {
-          player.x += player.speed;
-          touchStartX = touchX;
-        } else if (diff < -10 && player.x > 0) {
-          player.x -= player.speed;
-          touchStartX = touchX;
-        }
-      });
-
-      canvas.addEventListener('touchend', () => {
-        touchStartX = null;
       });
 
       // Load the Twitter bird image
@@ -223,19 +166,6 @@
       function update() {
         if (gameOver) return;
 
-        // Update WIDTH and HEIGHT in case of resize
-        WIDTH = canvas.width;
-        HEIGHT = canvas.height;
-
-        // Update player size based on canvas size
-        player.size = WIDTH * 0.0625; // 50/800
-        computer.size = WIDTH * 0.0625;
-
-        // Adjust bullet size and speed for smaller screens
-        const scaleFactor = WIDTH / 800;
-        const currentBulletSize = bulletSize * scaleFactor;
-        const currentBulletSpeed = bulletSpeed * scaleFactor;
-
         // Player movement
         if (keys['ArrowLeft'] && player.x > 0) player.x -= player.speed;
         if (keys['ArrowRight'] && player.x < WIDTH - player.size)
@@ -252,7 +182,7 @@
         player.bullets = player.bullets.filter((b) => b.x < WIDTH);
         for (let i = player.bullets.length - 1; i >= 0; i--) {
           const bullet = player.bullets[i];
-          bullet.x += currentBulletSpeed * bullet.direction;
+          bullet.x += bulletSpeed * bullet.direction;
           if (checkCollision(bullet, computer)) {
             computer.hits++;
             player.bullets.splice(i, 1);
