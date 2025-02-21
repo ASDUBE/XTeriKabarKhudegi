@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>X vs. Blue Bird: Shootout</title>
+    <style>
+      canvas {
+        border: 1px solid white;
+        background: black; /* Cosmic background */
+      }
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background: #111;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <script>
+      const canvas = document.getElementById('gameCanvas');
+      const ctx = canvas.getContext('2d');
+
+      // Game settings
+      const WIDTH = canvas.width;
+      const HEIGHT = canvas.height;
+
+      // Player (Blue Bird)
+      const player = {
+        x: 100,
+        y: HEIGHT / 2 - 25, // Fixed horizontal plane
+        size: 50,
+        speed: 5,
+        hits: 0, // Not used since X doesn't shoot
+        bullets: [],
+        shootDelay: 500, // ms
+        lastShot: 0,
+      };
+
+      // Computer (X)
+      const computer = {
+        x: WIDTH - 100,
+        y: HEIGHT / 2 - 25, // Fixed horizontal plane
+        size: 50,
+        speed: 3,
+        hits: 0,
+        opacity: 1, // For fade-out animation
+        shrinking: false, // Flag for animation
+      };
+
+      // Bullet settings
+      const bulletSize = 10;
+      const bulletSpeed = 7;
+
+      // Game state
+      let gameOver = false;
+
+      // Input handling
+      const keys = {};
+      window.addEventListener('keydown', (e) => (keys[e.key] = true));
+      window.addEventListener('keyup', (e) => (keys[e.key] = false));
+
+      // Click to shoot
+      canvas.addEventListener('click', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const clickY = e.clientY - rect.top;
+        if (
+          !gameOver &&
+          clickX >= player.x &&
+          clickX <= player.x + player.size &&
+          clickY >= player.y &&
+          clickY <= player.y + player.size &&
+          Date.now() - player.lastShot > player.shootDelay
+        ) {
+          player.bullets.push({
+            x: player.x + player.size / 2,
+            y: player.y + player.size / 2,
+            color: 'blue',
+            direction: 1,
+          });
+          player.lastShot = Date.now();
+        }
+      });
+
+      // Load the Twitter bird image
+      const playerImage = new Image();
+      playerImage.src = 'twt.png';
+
+      function drawPlayer() {
+        // Replace fillRect with drawImage
+        ctx.drawImage(
+          playerImage,
+          player.x,
+          player.y,
+          player.size,
+          player.size
+        );
+      }
+
+      function drawComputer() {
+        if (computer.hits >= 9 && !computer.shrinking) {
+          computer.shrinking = true; // Start animation
+        }
+        if (computer.shrinking) {
+          computer.size -= 2; // Shrink
+          computer.opacity -= 0.05; // Fade
+          computer.x += 1; // Adjust position as it shrinks
+          computer.y += 1;
+          if (computer.size <= 0) {
+            computer.size = 0; // Ensure it doesn't go negative
+            gameOver = true;
+          }
+        }
+        ctx.globalAlpha = computer.opacity; // Apply fade
+        ctx.fillStyle = 'black';
+        ctx.fillRect(computer.x, computer.y, computer.size, computer.size);
+        // Draw "X" shape for visibility
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(computer.x + 10, computer.y + 10);
+        ctx.lineTo(
+          computer.x + computer.size - 10,
+          computer.y + computer.size - 10
+        );
+        ctx.moveTo(computer.x + computer.size - 10, computer.y + 10);
+        ctx.lineTo(computer.x + 10, computer.y + computer.size - 10);
+        ctx.stroke();
+        ctx.globalAlpha = 1; // Reset opacity for other elements
+      }
+
+      function drawBullet(bullet) {
+        ctx.fillStyle = bullet.color;
+        ctx.beginPath();
+        ctx.arc(bullet.x, bullet.y, bulletSize, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      function checkCollision(bullet, target) {
+        return (
+          bullet.x > target.x &&
+          bullet.x < target.x + target.size &&
+          bullet.y > target.y &&
+          bullet.y < target.y + target.size
+        );
+      }
+
+      function dodgeBullets(entity, bullets) {
+        for (const bullet of bullets) {
+          if (
+            bullet.y === entity.y && // Same horizontal plane
+            Math.abs(bullet.x - entity.x) < 100 // Bullet is close
+          ) {
+            if (bullet.x < entity.x && entity.x > 0) entity.x += entity.speed; // Dodge right
+            if (bullet.x > entity.x && entity.x < WIDTH - entity.size)
+              entity.x -= entity.speed; // Dodge left
+          }
+        }
+      }
+
+      function update() {
+        if (gameOver) return;
+
+        // Player movement
+        if (keys['ArrowLeft'] && player.x > 0) player.x -= player.speed;
+        if (keys['ArrowRight'] && player.x < WIDTH - player.size)
+          player.x += player.speed;
+
+        // Computer movement and dodging
+        // computer.x += Math.random() > 0.5 ? computer.speed : -computer.speed;
+        // if (computer.x < 0) computer.x = 0;
+        // if (computer.x > WIDTH - computer.size)
+        //   computer.x = WIDTH - computer.size;
+        // dodgeBullets(computer, player.bullets);
+
+        // Update player bullets (rightward)
+        player.bullets = player.bullets.filter((b) => b.x < WIDTH);
+        for (let i = player.bullets.length - 1; i >= 0; i--) {
+          const bullet = player.bullets[i];
+          bullet.x += bulletSpeed * bullet.direction;
+          if (checkCollision(bullet, computer)) {
+            computer.hits++;
+            player.bullets.splice(i, 1);
+          }
+        }
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+        // Draw game elements
+        drawPlayer();
+        drawComputer();
+        player.bullets.forEach(drawBullet);
+
+        // Draw score
+        ctx.fillStyle = 'white';
+        ctx.font = '20px Arial';
+        ctx.fillText(`X Hits: ${computer.hits}/11`, 10, 30);
+
+        // Game over screen
+        if (gameOver) {
+          ctx.fillStyle = 'white';
+          ctx.font = '40px Arial';
+          ctx.fillText('Blue Bird Wins!', WIDTH / 2 - 150, HEIGHT / 2);
+        }
+      }
+
+      function gameLoop() {
+        update();
+        draw();
+        requestAnimationFrame(gameLoop);
+      }
+
+      // Start the game
+      gameLoop();
+    </script>
+  </body>
+</html>
